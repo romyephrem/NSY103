@@ -218,41 +218,41 @@ int changeVitesse(int v)
 	            printf("arrivé à destination");
 	            return -1;
 	        }
-	        else if (avion.position.altitude > avion.altituteMax)
+	        else if (avion.position.altitude > ALTMAX)
 	        {
 	            printf("crash de l'avion");
 	            return -2;
 	        }
-	        else if(avion.status == "on" && (avion.dep.vitesse + v) <= avion.vitMax && (avion.dep.vitesse + v) >= avion.vitMin) {
+	        else if(avion.status == "on" && (avion.dep.vitesse + v) <= VITMAX && (avion.dep.vitesse + v) >= VITMIN) {
 	               avion.dep.vitesse = avion.dep.vitesse + v ;
 	               printf("l'avion est dans l'air");
 	               return 0;
 	            }
-	        else if ( avion.status == "on" && (avion.dep.vitesse + v) <= avion.vitMin){
+	        else if ( avion.status == "on" && (avion.dep.vitesse + v) <= VITMIN){
 	                avion.dep.vitesse = 0 ;
 	                avion.status = "off";
 	                printf("crash de l'avion");
 	                return -2;
 	            }
-	        else if ( avion.status == "on" && (avion.dep.vitesse + v) >= avion.vitMax){
+	        else if ( avion.status == "on" && (avion.dep.vitesse + v) >= VITMAX){
 	                avion.dep.vitesse = 0 ;
 	                avion.status = "off";
 	                printf("crash de l'avion");
 	                return -2;
 	            }
-	        else if(avion.status == "off" && (avion.dep.vitesse + v) >= avion.vitMin && (avion.dep.vitesse + v) <= avion.vitMax){
+	        else if(avion.status == "off" && (avion.dep.vitesse + v) >= VITMIN && (avion.dep.vitesse + v) <= VITMAX){
 	             //demarrage de l'avion avec une vitesse v
 	                avion.dep.vitesse = avion.dep.vitesse + v ;
 	                avion.status = "on";
 	                printf("l'avion a demarré");
 	                return 0;
 	            }
-	        else if (avion.status == "off" && (avion.dep.vitesse + v) >= avion.vitMax){
+	        else if (avion.status == "off" && (avion.dep.vitesse + v) >= VITMAX){
 	            avion.dep.vitesse = 0;
 	            printf("l'avion ne peut pas demarrer avec cette grande vitesse");
 	            return -3;
 	        }
-	        else if (avion.status == "off" && (avion.dep.vitesse + v) <= avion.vitMin){
+	        else if (avion.status == "off" && (avion.dep.vitesse + v) <= VITMIN){
 	            avion.dep.vitesse = 0;
 	            printf("l'avion ne peut pas demarrer avec cette petite vitesse");
 	            return -3;
@@ -273,44 +273,75 @@ int ChangerCoordonnees(int vitX , int vitY, int vitZ, int cap , int alt){
 	return changeVitesse(vitesse);
 }
 
+void GetMessage(char *msg)
+{
+	strcpy(msg, (char *)getIdAv());
+	strcat(msg, "-");
+	strcat(msg, getNomAv());
+	strcat(msg, "-");
+	strcat(msg, getDestination());
+	strcat(msg, "-");
+	strcat(msg, (char *)getPosX());
+	strcat(msg, "-");
+	strcat(msg, (char *)getPosY());
+	strcat(msg, "-");
+	strcat(msg, (char *)getPosZ());
+}
+
 main ()
 {
-	avion.altituteMax = 20000;
-	avion.vitMax = 1000;
-	avion.vitMin = 200;
 	avion.destX = 1500;
 	avion.destY = 2000;
 	avion.destZ = 3000;
 	avion.nom = "Avion2";
 	avion.id = 2;
 
-	int sockfd, new_fd, rv, sin_size, status;
-	struct addrinfo hints, *svinfo, *res;
-	ssize_t numbytes;
-	char buf[100];
-	// Construction adresse serveur pour connect//
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	rv = getaddrinfo(SERVEUR, PORTS, &hints,&svinfo);
+	int sock;
+	char *message, sacamessage[2000];
+	struct sockaddr_in address;
+    sock = socket(AF_INET,SOCK_STREAM,0);
 
-	// Création socket et attachement
-	memset(&hints, 0, sizeof (hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
-	status = getaddrinfo(NULL, PORTC, &hints, &res);
-	sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	bind (sockfd, res->ai_addr, res->ai_addrlen);
-	connect(sockfd, svinfo ->ai_addr, svinfo ->ai_addrlen);
+    address.sin_family = AF_INET;
+    address.sin_port = htons(PORTS);
+    address.sin_addr.s_addr = inet_addr("127.0.0.1");
+	connect(sock, (struct sockaddr*)&address, sizeof(struct sockaddr));
 	bool b = true;
 
-	write(sockfd, avion.position.x, sizeof(avion.position.x));
-
+	char *msg;
+	GetMessage(msg);
+	write(sock, msg, 2000);
 	while(b)
 	{
-		numbytes = recv(sockfd, buf, 100, 0);
-		close(sockfd);
+		message = read(sock, sacamessage, 2000);
+		char **token = str_split(message, '-');
+		int res = ChangerCoordonnees(atoi(token[0]), atoi(token[1]), atoi(token[2]), atoi(token[3]), atoi(token[4]));
+		char *string;
+		strcpy(string, (char *)getPosX());
+		strcat(string, "-");
+		strcat(string, (char *)getPosY());
+		strcat(string, "-");
+		strcat(string, (char *)getPosZ());
+		if(res == -3)
+        {
+			strcat(string, "-vitesse");
+			write(sock, string, 2000);
+	        break;
+        }
+        if(res == -2)
+        {
+        	strcat(string, "-crash");
+            write(sock, string, 2000);
+            break;
+        }
+        if(res == -1)
+        {
+        	strcat(string, "-fin");
+            write(sock, string, 2000);
+            break;
+        }
+        sleep(3000);
+
+        write(sock, string, 2000);
 	}
 }
 
