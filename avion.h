@@ -31,9 +31,6 @@ struct avion {
 	int destX;
 	int destY;
 	int destZ;
-	int altituteMax;
-	int vitMax;
-	int vitMin;
     struct coordonnees position;
     struct deplacement dep;
     struct vitesse vitesse;
